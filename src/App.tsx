@@ -15,6 +15,8 @@ export default function App() {
   const [tab, setTab] = useState('전체')
   const [status, setStatus] = useState<StatusFilter>('안읽음')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // 상세 진입 시점의 목록 순서 스냅샷 (읽음 처리로 필터가 바뀌어도 이전/다음 이동이 흔들리지 않도록)
+  const [navIds, setNavIds] = useState<string[]>([])
 
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
   const narrator = useNarrator(voices, voiceURI, rate)
@@ -52,9 +54,14 @@ export default function App() {
     return () => window.speechSynthesis.removeEventListener('voiceschanged', load)
   }, [supported])
 
-  const openDetail = (id: string) => {
+  // 상세 열기 (읽음 처리). 목록에서 진입할 땐 현재 보이는 순서를 스냅샷으로 저장.
+  const open = (id: string) => {
     prefs.markRead(id)
     setSelectedId(id)
+  }
+  const openFromList = (id: string) => {
+    setNavIds(visible.map((a) => a.id))
+    open(id)
   }
 
   if (!supported) {
@@ -68,14 +75,14 @@ export default function App() {
     )
   }
 
-  // 상세 화면
-  const selIdx = selectedId ? visible.findIndex((a) => a.id === selectedId) : -1
-  if (selIdx >= 0) {
-    const selected = visible[selIdx]
-    const goTo = (target?: { id: string }) => {
-      if (!target) return
+  // 상세 화면 — 필터가 아니라 진입 시점 스냅샷(navIds)과 전체 목록을 기준으로 조회
+  const selected = selectedId ? articles.find((a) => a.id === selectedId) : undefined
+  if (selected) {
+    const navIdx = navIds.indexOf(selected.id)
+    const goTo = (targetId?: string) => {
+      if (!targetId) return
       narrator.stop()
-      openDetail(target.id)
+      open(targetId)
     }
     return (
       <ArticleDetail
@@ -84,8 +91,10 @@ export default function App() {
         liked={prefs.liked.has(selected.id)}
         onToggleLike={() => prefs.toggleLike(selected.id)}
         onBack={() => setSelectedId(null)}
-        onPrevArticle={selIdx > 0 ? () => goTo(visible[selIdx - 1]) : undefined}
-        onNextArticle={selIdx < visible.length - 1 ? () => goTo(visible[selIdx + 1]) : undefined}
+        onPrevArticle={navIdx > 0 ? () => goTo(navIds[navIdx - 1]) : undefined}
+        onNextArticle={
+          navIdx >= 0 && navIdx < navIds.length - 1 ? () => goTo(navIds[navIdx + 1]) : undefined
+        }
       />
     )
   }
@@ -160,13 +169,13 @@ export default function App() {
             <li
               key={a.id}
               className={`card${isRead ? ' read' : ''}${playing ? ' active' : ''}`}
-              onClick={() => openDetail(a.id)}
+              onClick={() => openFromList(a.id)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  openDetail(a.id)
+                  openFromList(a.id)
                 }
               }}
             >
