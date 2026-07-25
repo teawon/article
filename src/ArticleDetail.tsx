@@ -6,6 +6,8 @@ import { formatDate, splitIntoChunks } from './utils'
 interface Props {
   article: Article
   narrator: Narrator
+  liked: boolean
+  onToggleLike: () => void
   onBack: () => void
   onPrevArticle?: () => void
   onNextArticle?: () => void
@@ -14,6 +16,8 @@ interface Props {
 export default function ArticleDetail({
   article,
   narrator,
+  liked,
+  onToggleLike,
   onBack,
   onPrevArticle,
   onNextArticle,
@@ -39,7 +43,17 @@ export default function ArticleDetail({
         <button className="back" onClick={onBack} aria-label="목록으로">
           ‹ 목록
         </button>
-        <span className="provider-chip">{article.provider}</span>
+        <div className="detailbar-right">
+          <button
+            className={liked ? 'iconbtn liked' : 'iconbtn'}
+            onClick={onToggleLike}
+            aria-label={liked ? '좋아요 취소' : '좋아요'}
+            title={liked ? '좋아요 취소' : '좋아요'}
+          >
+            {liked ? '♥' : '♡'}
+          </button>
+          <span className="provider-chip">{article.provider}</span>
+        </div>
       </header>
 
       <h1 className="detail-title">{article.title}</h1>

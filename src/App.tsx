@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { articles } from './articles'
 import { useNarrator } from './useNarrator'
+import { usePrefs } from './usePrefs'
 import { formatDate } from './utils'
 import ArticleDetail from './ArticleDetail'
+
+type StatusFilter = '전체' | '안읽음' | '좋아요'
 
 export default function App() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
@@ -10,22 +13,27 @@ export default function App() {
   const [rate, setRate] = useState(1)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tab, setTab] = useState('전체')
+  const [status, setStatus] = useState<StatusFilter>('전체')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
   const narrator = useNarrator(voices, voiceURI, rate)
+  const prefs = usePrefs()
 
   const tabs = useMemo(() => {
     const providers = Array.from(new Set(articles.map((a) => a.provider)))
     return ['전체', ...providers]
   }, [])
 
-  const visible = useMemo(
-    () => (tab === '전체' ? articles : articles.filter((a) => a.provider === tab)),
-    [tab],
-  )
+  const visible = useMemo(() => {
+    return articles.filter((a) => {
+      if (tab !== '전체' && a.provider !== tab) return false
+      if (status === '안읽음' && prefs.read.has(a.id)) return false
+      if (status === '좋아요' && !prefs.liked.has(a.id)) return false
+      return true
+    })
+  }, [tab, status, prefs.read, prefs.liked])
 
-  // 음성 로딩 (기본값: 유나 우선)
   useEffect(() => {
     if (!supported) return
     const load = () => {
@@ -43,6 +51,11 @@ export default function App() {
     window.speechSynthesis.addEventListener('voiceschanged', load)
     return () => window.speechSynthesis.removeEventListener('voiceschanged', load)
   }, [supported])
+
+  const openDetail = (id: string) => {
+    prefs.markRead(id)
+    setSelectedId(id)
+  }
 
   if (!supported) {
     return (
@@ -62,12 +75,14 @@ export default function App() {
     const goTo = (target?: { id: string }) => {
       if (!target) return
       narrator.stop()
-      setSelectedId(target.id)
+      openDetail(target.id)
     }
     return (
       <ArticleDetail
         article={selected}
         narrator={narrator}
+        liked={prefs.liked.has(selected.id)}
+        onToggleLike={() => prefs.toggleLike(selected.id)}
         onBack={() => setSelectedId(null)}
         onPrevArticle={selIdx > 0 ? () => goTo(visible[selIdx - 1]) : undefined}
         onNextArticle={selIdx < visible.length - 1 ? () => goTo(visible[selIdx + 1]) : undefined}
@@ -124,40 +139,76 @@ export default function App() {
         ))}
       </nav>
 
+      <nav className="statusfilter">
+        {(['전체', '안읽음', '좋아요'] as StatusFilter[]).map((s) => (
+          <button
+            key={s}
+            className={s === status ? 'sf active' : 'sf'}
+            onClick={() => setStatus(s)}
+          >
+            {s === '좋아요' ? '♥ 좋아요' : s}
+          </button>
+        ))}
+      </nav>
+
       <ul className="list">
         {visible.map((a) => {
           const playing = narrator.articleId === a.id && narrator.active
+          const isRead = prefs.read.has(a.id)
+          const isLiked = prefs.liked.has(a.id)
           return (
             <li
               key={a.id}
-              className={playing ? 'card active' : 'card'}
-              onClick={() => setSelectedId(a.id)}
+              className={`card${isRead ? ' read' : ''}${playing ? ' active' : ''}`}
+              onClick={() => openDetail(a.id)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  setSelectedId(a.id)
+                  openDetail(a.id)
                 }
               }}
             >
               <div className="meta">
-                <h2>{a.title}</h2>
+                <h2>
+                  {isRead && <span className="readtag">읽음</span>}
+                  {a.title}
+                </h2>
                 <div className="submeta">
                   <span className="src">{a.source}</span>
                   {a.published && <span className="date">{formatDate(a.published)}</span>}
                 </div>
               </div>
+              <div className="cardactions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className={isLiked ? 'iconbtn liked' : 'iconbtn'}
+                  onClick={() => prefs.toggleLike(a.id)}
+                  aria-label={isLiked ? '좋아요 취소' : '좋아요'}
+                  title={isLiked ? '좋아요 취소' : '좋아요'}
+                >
+                  {isLiked ? '♥' : '♡'}
+                </button>
+                <button
+                  className="iconbtn"
+                  onClick={() => prefs.toggleRead(a.id)}
+                  aria-label={isRead ? '안 읽음으로 표시' : '읽음으로 표시'}
+                  title={isRead ? '안 읽음으로 표시' : '읽음으로 표시'}
+                >
+                  {isRead ? '↺' : '✓'}
+                </button>
+              </div>
               <span className="chevron">{playing ? '♪' : '›'}</span>
             </li>
           )
         })}
+        {visible.length === 0 && <li className="empty">표시할 글이 없어요.</li>}
       </ul>
 
       <footer>
         <p className="note">
-          카드를 누르면 상세 화면으로 이동해 전체 텍스트를 보며 들을 수 있어요. 화면을 끄면(특히
-          iOS) 재생이 멈출 수 있습니다.
+          카드를 누르면 상세 화면으로 이동하며 읽음으로 표시돼요. ♥ 는 좋아요, ✓ / ↺ 로 읽음 상태를
+          바꿀 수 있어요. 상태는 이 브라우저에 저장됩니다.
         </p>
       </footer>
     </main>

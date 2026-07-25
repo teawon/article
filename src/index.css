@@ -113,8 +113,27 @@ select {
   border-color: var(--accent);
 }
 
+/* 상태 필터 (전체 / 안읽음 / 좋아요) */
+.statusfilter {
+  display: flex;
+  gap: 8px;
+  margin: -6px 0 16px;
+}
+.sf {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.sf.active { color: var(--text); border-color: var(--accent); background: var(--card); }
+
 /* 카드 목록 */
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+
+.empty { color: var(--muted); text-align: center; padding: 40px 0; }
 
 .card {
   display: flex;
@@ -131,9 +150,39 @@ select {
 .card:hover { border-color: var(--accent); }
 .card.active { background: var(--card-active); border-color: var(--accent); }
 .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card.read { opacity: 0.5; }
+.card.read:hover { opacity: 0.75; }
 
-.card .meta { min-width: 0; }
+.card .meta { min-width: 0; flex: 1; }
 .card h2 { font-size: 1rem; margin: 0 0 6px; line-height: 1.35; }
+
+.readtag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* 카드 액션 (좋아요 / 읽음 토글) */
+.cardactions { display: flex; gap: 4px; flex-shrink: 0; }
+.iconbtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.iconbtn:hover { border-color: var(--accent); color: var(--text); }
+.iconbtn.liked { color: #f43f5e; border-color: #f43f5e; }
 
 .submeta {
   display: flex;
@@ -173,6 +222,7 @@ select {
   cursor: pointer;
   padding: 4px 0;
 }
+.detailbar-right { display: flex; align-items: center; gap: 8px; }
 .provider-chip {
   font-size: 0.75rem;
   color: var(--muted);
