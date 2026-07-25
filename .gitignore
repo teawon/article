@@ -1,0 +1,42 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Vite 캐시
+.vite/
+
+# 로그
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 환경변수 (API 키 등 — 나중에 TTS API 붙일 때)
+.env
+.env.*
+!.env.example
+
+# OS / 에디터
+.DS_Store
+*.local
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ── 프로젝트 데이터 ─────────────────────────────
+# 수집 원문: RSS에서 언제든 재생성 가능한 캐시 → 커밋 안 함
+data/raw/
+
+# 낭독 대본(data/narrated/)은 산출물이라 커밋한다.
+
+# 음성/피드 테스트 산출물 (mp3 등 바이너리 실험물)
+output/
+
+# Claude Code 로컬 설정 (스킬은 커밋, 개인 설정은 제외)
+.claude/settings.local.json
