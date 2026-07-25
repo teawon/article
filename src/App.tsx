@@ -1,36 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { articles, type Article } from './articles'
-
-/** 긴 텍스트는 문장 단위로 끊어 읽어야 브라우저(특히 Safari)가 중간에 멈추지 않는다. */
-function splitIntoChunks(text: string): string[] {
-  return text
-    .split(/(?<=[.?!])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-/** ISO 날짜 → "2026.07.25" */
-function formatDate(iso?: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`
-}
+import { useEffect, useMemo, useState } from 'react'
+import { articles } from './articles'
+import { useNarrator } from './useNarrator'
+import { formatDate } from './utils'
+import ArticleDetail from './ArticleDetail'
 
 export default function App() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [voiceURI, setVoiceURI] = useState<string>('')
   const [rate, setRate] = useState(1)
-  const [playingId, setPlayingId] = useState<string | null>(null)
-  const [paused, setPaused] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tab, setTab] = useState('전체')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const runToken = useRef(0)
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
+  const narrator = useNarrator(voices, voiceURI, rate)
 
-  // 탭 목록 = 전체 + provider 종류
   const tabs = useMemo(() => {
     const providers = Array.from(new Set(articles.map((a) => a.provider)))
     return ['전체', ...providers]
@@ -60,57 +44,10 @@ export default function App() {
     return () => window.speechSynthesis.removeEventListener('voiceschanged', load)
   }, [supported])
 
-  const stop = () => {
-    runToken.current++
-    window.speechSynthesis.cancel()
-    setPlayingId(null)
-    setPaused(false)
-  }
-
-  const play = (article: Article) => {
-    window.speechSynthesis.cancel()
-    const token = ++runToken.current
-    const voice = voices.find((v) => v.voiceURI === voiceURI) ?? null
-    const chunks = splitIntoChunks(article.script)
-    setPlayingId(article.id)
-    setPaused(false)
-
-    const speakChunk = (i: number) => {
-      if (token !== runToken.current) return
-      if (i >= chunks.length) {
-        setPlayingId(null)
-        return
-      }
-      const u = new SpeechSynthesisUtterance(chunks[i])
-      if (voice) u.voice = voice
-      u.lang = voice?.lang ?? 'ko-KR'
-      u.rate = rate
-      u.onend = () => speakChunk(i + 1)
-      u.onerror = () => {
-        if (token === runToken.current) setPlayingId(null)
-      }
-      window.speechSynthesis.speak(u)
-    }
-    speakChunk(0)
-  }
-
-  // 카드 클릭: 재생 / 일시정지 / 재개 토글
-  const onCardClick = (article: Article) => {
-    if (playingId !== article.id) {
-      play(article)
-    } else if (paused) {
-      window.speechSynthesis.resume()
-      setPaused(false)
-    } else {
-      window.speechSynthesis.pause()
-      setPaused(true)
-    }
-  }
-
   if (!supported) {
     return (
       <main className="wrap">
-        <h1>긱뉴스 오디오</h1>
+        <h1>아티클 오디오</h1>
         <p className="warn">
           이 브라우저는 음성 합성(Web Speech API)을 지원하지 않아요. 크롬이나 Safari에서 열어 주세요.
         </p>
@@ -118,6 +55,27 @@ export default function App() {
     )
   }
 
+  // 상세 화면
+  const selIdx = selectedId ? visible.findIndex((a) => a.id === selectedId) : -1
+  if (selIdx >= 0) {
+    const selected = visible[selIdx]
+    const goTo = (target?: { id: string }) => {
+      if (!target) return
+      narrator.stop()
+      setSelectedId(target.id)
+    }
+    return (
+      <ArticleDetail
+        article={selected}
+        narrator={narrator}
+        onBack={() => setSelectedId(null)}
+        onPrevArticle={selIdx > 0 ? () => goTo(visible[selIdx - 1]) : undefined}
+        onNextArticle={selIdx < visible.length - 1 ? () => goTo(visible[selIdx + 1]) : undefined}
+      />
+    )
+  }
+
+  // 목록 화면
   return (
     <main className="wrap">
       <header className="topbar">
@@ -160,11 +118,7 @@ export default function App() {
 
       <nav className="tabs">
         {tabs.map((t) => (
-          <button
-            key={t}
-            className={t === tab ? 'tab active' : 'tab'}
-            onClick={() => setTab(t)}
-          >
+          <button key={t} className={t === tab ? 'tab active' : 'tab'} onClick={() => setTab(t)}>
             {t}
           </button>
         ))}
@@ -172,19 +126,18 @@ export default function App() {
 
       <ul className="list">
         {visible.map((a) => {
-          const active = playingId === a.id
-          const status = !active ? '▶' : paused ? '▶' : '⏸'
+          const playing = narrator.articleId === a.id && narrator.active
           return (
             <li
               key={a.id}
-              className={active ? 'card active' : 'card'}
-              onClick={() => onCardClick(a)}
+              className={playing ? 'card active' : 'card'}
+              onClick={() => setSelectedId(a.id)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  onCardClick(a)
+                  setSelectedId(a.id)
                 }
               }}
             >
@@ -195,21 +148,7 @@ export default function App() {
                   {a.published && <span className="date">{formatDate(a.published)}</span>}
                 </div>
               </div>
-              <div className="playstate">
-                <span className="icon">{status}</span>
-                {active && (
-                  <button
-                    className="stop"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      stop()
-                    }}
-                    aria-label="정지"
-                  >
-                    ■
-                  </button>
-                )}
-              </div>
+              <span className="chevron">{playing ? '♪' : '›'}</span>
             </li>
           )
         })}
@@ -217,8 +156,8 @@ export default function App() {
 
       <footer>
         <p className="note">
-          카드를 누르면 재생됩니다. 화면을 켜 둔 상태에서만 재생돼요 — 화면을 끄면(특히 iOS)
-          멈출 수 있습니다.
+          카드를 누르면 상세 화면으로 이동해 전체 텍스트를 보며 들을 수 있어요. 화면을 끄면(특히
+          iOS) 재생이 멈출 수 있습니다.
         </p>
       </footer>
     </main>
