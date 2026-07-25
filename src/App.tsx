@@ -13,7 +13,7 @@ export default function App() {
   const [rate, setRate] = useState(1)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tab, setTab] = useState('전체')
-  const [status, setStatus] = useState<StatusFilter>('전체')
+  const [status, setStatus] = useState<StatusFilter>('안읽음')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
