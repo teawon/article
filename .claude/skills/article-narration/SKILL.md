@@ -9,8 +9,8 @@ description: src/articles.json 의 수집된 긱뉴스 글을 "운전 중 들어
 
 ## 입력 / 출력
 
-- 입력: `data/raw/<id>.json` — `{ id, title, source, link, published, paragraphs }` (깨끗한 원문 문단 배열)
-- 출력: `data/narrated/<id>.json` — `{ id, title, source, link, published, script }` (재작성한 낭독 대본)
+- 입력: `data/raw/<id>.json` — `{ id, title, source, provider, link, published, paragraphs }` (깨끗한 원문 문단 배열)
+- 출력: `data/narrated/<id>.json` — `{ id, title, source, provider, link, published, script }` (재작성한 낭독 대본)
 - **보정 여부는 파일 존재로 판단한다**: `data/narrated/<id>.json` 이 이미 있으면 그 글은 **건너뛴다** (사용자가 "전부 다시"라고 하면 예외로 덮어쓴다)
 
 ## 실행 절차
@@ -18,7 +18,7 @@ description: src/articles.json 의 수집된 긱뉴스 글을 "운전 중 들어
 1. `data/raw/` 의 파일 목록을 읽는다.
 2. 각 `<id>` 에 대해 `data/narrated/<id>.json` 이 **없는 것만** 처리한다.
 3. 해당 원문(`paragraphs` + `title` + `source`)을 아래 "대본 작성 규칙"으로 대본화한다.
-4. 원문의 `id/title/source/link/published` 를 그대로 두고 `script` 필드만 추가해 `data/narrated/<id>.json` 으로 저장한다.
+4. 원문의 `id/title/source/provider/link/published` 를 그대로 두고 `script` 필드만 추가해 `data/narrated/<id>.json` 으로 저장한다.
 5. 몇 개를 보정했는지, 각 글 제목을 사용자에게 보고한다.
 
 ## 대본 작성 규칙 (핵심)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { articles, type Article } from './articles'
 
 /** 긴 텍스트는 문장 단위로 끊어 읽어야 브라우저(특히 Safari)가 중간에 멈추지 않는다. */
@@ -9,29 +9,50 @@ function splitIntoChunks(text: string): string[] {
     .filter(Boolean)
 }
 
+/** ISO 날짜 → "2026.07.25" */
+function formatDate(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`
+}
+
 export default function App() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [voiceURI, setVoiceURI] = useState<string>('')
   const [rate, setRate] = useState(1)
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [paused, setPaused] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [tab, setTab] = useState('전체')
 
-  // 현재 재생을 취소하기 위한 토큰. speak 할 때마다 증가시켜 이전 큐를 무효화한다.
   const runToken = useRef(0)
-
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-  // 사용 가능한 음성 로딩 (voiceschanged 이벤트로 비동기 도착)
+  // 탭 목록 = 전체 + provider 종류
+  const tabs = useMemo(() => {
+    const providers = Array.from(new Set(articles.map((a) => a.provider)))
+    return ['전체', ...providers]
+  }, [])
+
+  const visible = useMemo(
+    () => (tab === '전체' ? articles : articles.filter((a) => a.provider === tab)),
+    [tab],
+  )
+
+  // 음성 로딩 (기본값: 유나 우선)
   useEffect(() => {
     if (!supported) return
     const load = () => {
       const all = window.speechSynthesis.getVoices()
       const korean = all.filter((v) => v.lang.toLowerCase().startsWith('ko'))
-      setVoices(korean.length ? korean : all)
+      const list = korean.length ? korean : all
+      setVoices(list)
       setVoiceURI((prev) => {
         if (prev) return prev
-        const preferred = korean[0] ?? all[0]
-        return preferred ? preferred.voiceURI : ''
+        const yuna = list.find((v) => /yuna|유나/i.test(v.name))
+        return (yuna ?? list[0])?.voiceURI ?? ''
       })
     }
     load()
@@ -46,19 +67,16 @@ export default function App() {
     setPaused(false)
   }
 
-  const speak = (article: Article) => {
-    if (!supported) return
-    // 항상 깨끗한 상태에서 시작
+  const play = (article: Article) => {
     window.speechSynthesis.cancel()
     const token = ++runToken.current
     const voice = voices.find((v) => v.voiceURI === voiceURI) ?? null
     const chunks = splitIntoChunks(article.script)
-
     setPlayingId(article.id)
     setPaused(false)
 
     const speakChunk = (i: number) => {
-      if (token !== runToken.current) return // 취소됨
+      if (token !== runToken.current) return
       if (i >= chunks.length) {
         setPlayingId(null)
         return
@@ -76,8 +94,11 @@ export default function App() {
     speakChunk(0)
   }
 
-  const togglePause = () => {
-    if (paused) {
+  // 카드 클릭: 재생 / 일시정지 / 재개 토글
+  const onCardClick = (article: Article) => {
+    if (playingId !== article.id) {
+      play(article)
+    } else if (paused) {
       window.speechSynthesis.resume()
       setPaused(false)
     } else {
@@ -99,54 +120,94 @@ export default function App() {
 
   return (
     <main className="wrap">
-      <header>
-        <h1>긱뉴스 오디오 <span className="badge">테스트</span></h1>
-        <p className="sub">브라우저가 직접 읽어주는 방식 — mp3 파일 없이 재생합니다.</p>
+      <header className="topbar">
+        <h1>아티클 오디오</h1>
+        <button
+          className="gear"
+          onClick={() => setSettingsOpen((v) => !v)}
+          aria-label="재생 설정"
+          aria-expanded={settingsOpen}
+        >
+          ⚙︎
+        </button>
       </header>
 
-      <section className="controls">
-        <label>
-          음성
-          <select value={voiceURI} onChange={(e) => setVoiceURI(e.target.value)}>
-            {voices.map((v) => (
-              <option key={v.voiceURI} value={v.voiceURI}>
-                {v.name} ({v.lang})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          속도 <strong>{rate.toFixed(1)}x</strong>
-          <input
-            type="range"
-            min={0.5}
-            max={2}
-            step={0.1}
-            value={rate}
-            onChange={(e) => setRate(Number(e.target.value))}
-          />
-        </label>
-      </section>
+      {settingsOpen && (
+        <section className="settings">
+          <label>
+            음성
+            <select value={voiceURI} onChange={(e) => setVoiceURI(e.target.value)}>
+              {voices.map((v) => (
+                <option key={v.voiceURI} value={v.voiceURI}>
+                  {v.name} ({v.lang})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            속도 <strong>{rate.toFixed(1)}x</strong>
+            <input
+              type="range"
+              min={0.5}
+              max={2}
+              step={0.1}
+              value={rate}
+              onChange={(e) => setRate(Number(e.target.value))}
+            />
+          </label>
+        </section>
+      )}
+
+      <nav className="tabs">
+        {tabs.map((t) => (
+          <button
+            key={t}
+            className={t === tab ? 'tab active' : 'tab'}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
 
       <ul className="list">
-        {articles.map((a) => {
+        {visible.map((a) => {
           const active = playingId === a.id
+          const status = !active ? '▶' : paused ? '▶' : '⏸'
           return (
-            <li key={a.id} className={active ? 'card active' : 'card'}>
+            <li
+              key={a.id}
+              className={active ? 'card active' : 'card'}
+              onClick={() => onCardClick(a)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onCardClick(a)
+                }
+              }}
+            >
               <div className="meta">
                 <h2>{a.title}</h2>
-                <a href={a.link} target="_blank" rel="noreferrer">
-                  {a.source}
-                </a>
+                <div className="submeta">
+                  <span className="src">{a.source}</span>
+                  {a.published && <span className="date">{formatDate(a.published)}</span>}
+                </div>
               </div>
-              <div className="actions">
-                {active ? (
-                  <>
-                    <button onClick={togglePause}>{paused ? '▶ 계속' : '⏸ 일시정지'}</button>
-                    <button className="ghost" onClick={stop}>■ 정지</button>
-                  </>
-                ) : (
-                  <button onClick={() => speak(a)}>▶ 듣기</button>
+              <div className="playstate">
+                <span className="icon">{status}</span>
+                {active && (
+                  <button
+                    className="stop"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      stop()
+                    }}
+                    aria-label="정지"
+                  >
+                    ■
+                  </button>
                 )}
               </div>
             </li>
@@ -156,8 +217,8 @@ export default function App() {
 
       <footer>
         <p className="note">
-          ※ 이 화면을 켜 둔 상태에서만 재생됩니다. 화면을 끄면(특히 iOS) 멈출 수 있어요 —
-          출퇴근 배경 재생이 필요하면 팟캐스트(mp3) 방식이 안정적입니다.
+          카드를 누르면 재생됩니다. 화면을 켜 둔 상태에서만 재생돼요 — 화면을 끄면(특히 iOS)
+          멈출 수 있습니다.
         </p>
       </footer>
     </main>

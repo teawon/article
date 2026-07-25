@@ -88,7 +88,7 @@ async function main() {
         console.log('건너뜀(본문 없음)')
         continue
       }
-      const raw = { id: e.id, title: e.title, source, link: e.link, published: e.published, paragraphs }
+      const raw = { id: e.id, title: e.title, source, provider: '긱뉴스', link: e.link, published: e.published, paragraphs }
       await writeFile(join(RAW_DIR, `${e.id}.json`), JSON.stringify(raw, null, 2), 'utf-8')
       const done = alreadyNarrated.has(e.id)
       console.log(done ? 'OK (이미 보정됨)' : 'OK (보정 대기)')
