@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Article } from './articles'
 import type { AudioNarrator } from './useAudioNarrator'
 import { formatDate, splitIntoChunks } from './utils'
+
+const stripChars = (s: string) => s.replace(/[^0-9A-Za-z가-힣]/g, '')
 
 interface Props {
   article: Article
@@ -33,10 +35,47 @@ export default function ArticleDetail({
 }: Props) {
   const paragraphs = useMemo(() => splitIntoChunks(article.script), [article.script])
   const isCurrent = narrator.articleId === article.id
+  const highlightRef = useRef<HTMLParagraphElement | null>(null)
+
+  // 단어 타이밍 → 문장별 시작 시각 (초)
+  const sentenceStarts = useMemo(() => {
+    const wb = narrator.boundaries
+    if (!wb.length) return [] as number[]
+    const cumEnd: number[] = []
+    let acc = 0
+    for (const w of wb) {
+      acc += stripChars(w.text).length
+      cumEnd.push(acc)
+    }
+    const starts: number[] = []
+    let sentStart = 0
+    for (const sent of paragraphs) {
+      let idx = cumEnd.findIndex((e) => e > sentStart)
+      if (idx < 0) idx = wb.length - 1
+      starts.push(wb[idx]?.t ?? 0)
+      sentStart += stripChars(sent).length
+    }
+    return starts
+  }, [narrator.boundaries, paragraphs])
+
+  // 현재 재생 시각이 속한 문장
+  const activeIdx = useMemo(() => {
+    if (!isCurrent || !sentenceStarts.length) return -1
+    let idx = -1
+    for (let i = 0; i < sentenceStarts.length; i++) {
+      if (sentenceStarts[i] <= narrator.currentTime + 0.15) idx = i
+      else break
+    }
+    return idx
+  }, [isCurrent, sentenceStarts, narrator.currentTime])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [article.id])
+
+  useEffect(() => {
+    highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [activeIdx])
 
   const onMain = () => {
     if (!isCurrent || (!narrator.active && !narrator.loading)) narrator.play(article)
@@ -116,13 +155,25 @@ export default function ArticleDetail({
         </div>
       )}
 
-      {/* 전체 텍스트 (읽기용) */}
+      {/* 전체 텍스트 + 현재 문장 하이라이트 (문장 클릭 시 그 지점부터 재생) */}
       <article className="fulltext">
-        {paragraphs.map((s, i) => (
-          <p key={i} className="sentence">
-            {s}
-          </p>
-        ))}
+        {paragraphs.map((s, i) => {
+          const start = sentenceStarts[i]
+          const clickable = isCurrent && start != null
+          return (
+            <p
+              key={i}
+              ref={i === activeIdx ? highlightRef : null}
+              className={i === activeIdx ? 'sentence reading' : 'sentence'}
+              onClick={() => {
+                if (clickable) narrator.seekTo(start)
+                else narrator.play(article)
+              }}
+            >
+              {s}
+            </p>
+          )
+        })}
       </article>
 
       {/* 이전/다음 아티클 */}

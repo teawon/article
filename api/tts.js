@@ -1,5 +1,5 @@
-// Vercel 서버리스 함수: 대본 텍스트 → 엣지(마이크로소프트) 신경망 음성 mp3
-// 무료, API 키 불필요. POST { text, voice } → audio/mpeg
+// Vercel 서버리스 함수: 대본 텍스트 → 엣지(마이크로소프트) 신경망 음성 + 단어 타이밍
+// 무료, API 키 불필요. POST { text, voice } → { audio(base64 mp3), boundaries }
 import { EdgeTTS } from '@andresaya/edge-tts'
 
 export const config = { maxDuration: 60 }
@@ -24,11 +24,16 @@ export default async function handler(req, res) {
     const chosen = ALLOWED.has(voice) ? voice : 'ko-KR-SunHiNeural'
     const tts = new EdgeTTS()
     await tts.synthesize(text, chosen, { rate: '0%', pitch: '0Hz', volume: '0%' })
-    const buf = tts.toBuffer()
-    res.setHeader('Content-Type', 'audio/mpeg')
-    // 같은 글은 하루 캐시 (동일 요청 재생성 방지)
+
+    const audio = tts.toBase64()
+    // 단어 타이밍: offset 은 100ns 틱 → 초 = offset / 1e7
+    const boundaries = (tts.getWordBoundaries() || []).map((w) => ({
+      t: w.offset / 1e7,
+      text: w.text,
+    }))
+
     res.setHeader('Cache-Control', 'public, max-age=86400')
-    res.status(200).send(buf)
+    res.status(200).json({ audio, boundaries })
   } catch (e) {
     res.status(500).json({ error: String(e?.message || e) })
   }

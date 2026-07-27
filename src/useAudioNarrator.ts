@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Article } from './articles'
 import { splitIntoChunks } from './utils'
 
+export interface WordMark {
+  t: number // 초 단위 시작 시각
+  text: string
+}
+
 export interface AudioNarrator {
   articleId: string | null
   active: boolean
@@ -10,8 +15,9 @@ export interface AudioNarrator {
   currentTime: number
   duration: number
   completedId: string | null
-  /** 서버 음성 실패로 기기 음성(유나)로 대체 재생 중인지 */
   fallback: boolean
+  /** 현재 글의 단어 타이밍 (없으면 빈 배열) */
+  boundaries: WordMark[]
   play: (a: Article) => void
   toggle: () => void
   stop: () => void
@@ -19,8 +25,21 @@ export interface AudioNarrator {
   seekTo: (t: number) => void
 }
 
+interface CacheEntry {
+  url: string
+  boundaries: WordMark[]
+}
+
+function base64ToBlob(b64: string, type: string): Blob {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new Blob([bytes], { type })
+}
+
 /**
  * 엣지(마이크로소프트) 신경망 음성을 /api/tts 로 받아 <audio> 로 재생.
+ * 단어 타이밍(boundaries)도 함께 받아 문장 하이라이트에 사용.
  * 실패(로컬 dev 등)하면 기기 음성(Web Speech)로 자동 대체.
  */
 export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
@@ -32,14 +51,14 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
   const [duration, setDuration] = useState(0)
   const [completedId, setCompletedId] = useState<string | null>(null)
   const [fallback, setFallback] = useState(false)
+  const [boundaries, setBoundaries] = useState<WordMark[]>([])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const cacheRef = useRef<Map<string, string>>(new Map()) // `${voice}:${id}` -> objectURL
+  const cacheRef = useRef<Map<string, CacheEntry>>(new Map())
   const curId = useRef<string | null>(null)
   const reqToken = useRef(0)
   const speechToken = useRef(0)
 
-  // <audio> 초기화
   useEffect(() => {
     const a = new Audio()
     audioRef.current = a
@@ -63,7 +82,6 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
     }
   }, [])
 
-  // 배속은 재생성 없이 즉시 반영
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = rate
   }, [rate])
@@ -73,11 +91,11 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
   }
 
-  // 기기 음성 대체 재생 (문장 단위)
   const speakFallback = useCallback(
     (a: Article) => {
       if (!('speechSynthesis' in window)) return
       setFallback(true)
+      setBoundaries([])
       setActive(true)
       setPaused(false)
       const my = ++speechToken.current
@@ -113,10 +131,11 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
       setFallback(false)
       setCurrentTime(0)
       setDuration(0)
+      setBoundaries([])
 
       const key = `${voice}:${a.id}`
-      let url = cacheRef.current.get(key)
-      if (!url) {
+      let entry = cacheRef.current.get(key)
+      if (!entry) {
         setLoading(true)
         try {
           const res = await fetch('/api/tts', {
@@ -125,27 +144,29 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
             body: JSON.stringify({ text: a.script, voice }),
           })
           if (!res.ok) throw new Error('tts ' + res.status)
-          const blob = await res.blob()
-          if (blob.type.includes('json') || blob.size < 1000) throw new Error('bad audio')
-          url = URL.createObjectURL(blob)
-          cacheRef.current.set(key, url)
+          const data = await res.json()
+          if (!data?.audio) throw new Error('no audio')
+          const url = URL.createObjectURL(base64ToBlob(data.audio, 'audio/mpeg'))
+          entry = { url, boundaries: Array.isArray(data.boundaries) ? data.boundaries : [] }
+          cacheRef.current.set(key, entry)
         } catch {
           if (my !== reqToken.current) return
           setLoading(false)
-          speakFallback(a) // 서버 음성 실패 → 기기 음성으로
+          speakFallback(a)
           return
         }
         if (my !== reqToken.current) return
         setLoading(false)
       }
 
-      audio.src = url
+      setBoundaries(entry.boundaries)
+      audio.src = entry.url
       audio.playbackRate = rate
       setActive(true)
       try {
         await audio.play()
       } catch {
-        /* 사용자 제스처 없이 자동재생 차단 시 무시 */
+        /* 자동재생 차단 시 무시 */
       }
     },
     [voice, rate, speakFallback],
@@ -191,7 +212,8 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
     const audio = audioRef.current
     if (!audio) return
     audio.currentTime = t
-  }, [])
+    if (audio.paused && active) audio.play().catch(() => {})
+  }, [active])
 
   return {
     articleId,
@@ -202,6 +224,7 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
     duration,
     completedId,
     fallback,
+    boundaries,
     play,
     toggle,
     stop,
