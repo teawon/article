@@ -13,6 +13,8 @@ export interface Narrator {
   active: boolean
   /** 일시정지 여부 */
   paused: boolean
+  /** 방금 끝까지 재생 완료된 글 id (정지/중단이 아니라 자연 종료). 없으면 null */
+  completedId: string | null
   play: (a: Article, startIndex?: number) => void
   toggle: () => void
   stop: () => void
@@ -35,7 +37,9 @@ export function useNarrator(
   const [total, setTotal] = useState(0)
   const [active, setActive] = useState(false)
   const [paused, setPaused] = useState(false)
+  const [completedId, setCompletedId] = useState<string | null>(null)
   const chunksRef = useRef<string[]>([])
+  const articleIdRef = useRef<string | null>(null) // 완료 시점에 어떤 글이었는지 참조
   const token = useRef(0) // 재생 세션 토큰: 증가시키면 이전 재생 콜백이 무효화됨
 
   const playFrom = useCallback(
@@ -47,11 +51,13 @@ export function useNarrator(
       const my = ++token.current
       setActive(true)
       setPaused(false)
+      setCompletedId(null)
 
       const step = (j: number) => {
         if (my !== token.current) return
         if (j >= chunks.length) {
           setActive(false)
+          setCompletedId(articleIdRef.current) // 자연 종료
           return
         }
         setIndex(j)
@@ -74,6 +80,7 @@ export function useNarrator(
   const play = useCallback(
     (a: Article, startIndex = 0) => {
       chunksRef.current = splitIntoChunks(a.script)
+      articleIdRef.current = a.id
       setArticleId(a.id)
       setTotal(chunksRef.current.length)
       playFrom(startIndex)
@@ -98,10 +105,11 @@ export function useNarrator(
     setActive(false)
     setPaused(false)
     setIndex(0)
+    setCompletedId(null)
   }, [])
 
   const next = useCallback(() => playFrom(index + 1), [playFrom, index])
   const prev = useCallback(() => playFrom(index - 1), [playFrom, index])
 
-  return { articleId, index, total, active, paused, play, toggle, stop, next, prev }
+  return { articleId, index, total, active, paused, completedId, play, toggle, stop, next, prev }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Article } from './articles'
 import type { Narrator } from './useNarrator'
 import { formatDate, splitIntoChunks } from './utils'
@@ -41,6 +41,28 @@ export default function ArticleDetail({
     else narrator.toggle()
   }
   const mainIcon = !isCurrent || !narrator.active ? '▶' : narrator.paused ? '▶' : '⏸'
+
+  // 낭독 완료 → 오버레이 + 자동 넘김
+  const AUTO_SECONDS = 5
+  const finished = narrator.completedId === article.id
+  const [dismissed, setDismissed] = useState(false)
+  const [countdown, setCountdown] = useState(AUTO_SECONDS)
+
+  useEffect(() => {
+    setDismissed(false) // 새 글로 넘어오면 오버레이 상태 초기화
+  }, [article.id])
+
+  const showOverlay = finished && !dismissed
+  useEffect(() => {
+    if (!showOverlay || !onNextArticle) return
+    setCountdown(AUTO_SECONDS)
+    const iv = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000)
+    const to = setTimeout(() => onNextArticle(), AUTO_SECONDS * 1000)
+    return () => {
+      clearInterval(iv)
+      clearTimeout(to)
+    }
+  }, [showOverlay, onNextArticle, article.id])
 
   return (
     <main className="wrap detail">
@@ -134,6 +156,36 @@ export default function ArticleDetail({
           </button>
         </div>
       </div>
+
+      {/* 낭독 완료 오버레이 */}
+      {showOverlay && (
+        <div className="overlay" role="dialog" aria-label="낭독 완료">
+          <div className="overlay-card">
+            <p className="overlay-done">✓ 낭독 완료</p>
+            {onNextArticle ? (
+              <>
+                <button className="overlay-next" onClick={onNextArticle}>
+                  다음 글로 넘어가기
+                  <span className="overlay-count">{countdown}초 후 자동 이동</span>
+                </button>
+                <button className="overlay-stay" onClick={() => setDismissed(true)}>
+                  이 글에 머무르기
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="overlay-last">마지막 글입니다.</p>
+                <button className="overlay-next" onClick={onBack}>
+                  목록으로
+                </button>
+                <button className="overlay-stay" onClick={() => setDismissed(true)}>
+                  이 글에 머무르기
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
