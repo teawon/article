@@ -27,6 +27,11 @@ export default function ArticleDetail({
   const activeIdx = isCurrent ? narrator.index : -1
   const highlightRef = useRef<HTMLParagraphElement | null>(null)
 
+  // 다른 글로 넘어가면 스크롤을 맨 위로
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [article.id])
+
   useEffect(() => {
     highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [activeIdx])
