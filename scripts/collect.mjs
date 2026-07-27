@@ -37,7 +37,7 @@ async function main() {
     }
     process.stdout.write(`② 본문 추출 [${key}] ${e.title.slice(0, 24)}... `)
     try {
-      const { source, paragraphs, published } = await fetchTopicBody(e.link)
+      const { source, paragraphs, published, comments } = await fetchTopicBody(e.link)
       if (!paragraphs.length) {
         console.log('건너뜀(본문 없음)')
         continue
@@ -51,6 +51,7 @@ async function main() {
         link: e.link,
         published,
         paragraphs,
+        comments,
       })
       seen.add(key)
       added++

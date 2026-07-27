@@ -49,7 +49,36 @@ export function stripHtml(html) {
     .filter(Boolean)
 }
 
-// 긱뉴스 토픽 페이지에서 #topic_contents 본문 + 출처 + 게시일 추출
+function decodeEntities(s) {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+}
+
+// 토픽 페이지의 댓글 본문 추출 (comment_contents 영역). 각 댓글 = 한 문자열.
+export function extractComments(html, limit = 40) {
+  const out = []
+  const re = /class='comment_contents'[^>]*>([\s\S]*?)<\/span>/g
+  let m
+  while ((m = re.exec(html)) && out.length < limit) {
+    const text = decodeEntities(
+      m[1]
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<\/(p|div|li)>/gi, ' ')
+        .replace(/<[^>]+>/g, ''),
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (text) out.push(text)
+  }
+  return out
+}
+
+// 긱뉴스 토픽 페이지에서 #topic_contents 본문 + 출처 + 게시일 + 댓글 추출
 export async function fetchTopicBody(topicUrl) {
   const res = await fetch(topicUrl)
   const html = await res.text()
@@ -59,7 +88,8 @@ export async function fetchTopicBody(topicUrl) {
   const section = html.match(/<section id='topic_contents'[^>]*>([\s\S]*?)<\/section>/)?.[1]
   const paragraphs = section ? stripHtml(section) : []
   const published = html.match(/datetime=['"]([^'"]+)['"]/)?.[1]
-  return { source, paragraphs, published }
+  const comments = extractComments(html)
+  return { source, paragraphs, published, comments }
 }
 
 export async function readJson(path, fallback) {

@@ -10,7 +10,7 @@ description: src/articles.json 의 수집된 긱뉴스 글을 "운전 중 들어
 ## 입력 / 출력
 
 - 파일명 `<key>.json` 의 key 는 전역 키 형식 `"<provider-slug>__<소스ID 또는 URL해시>"` (예: `geeknews__31806`). collect.mjs 가 정한다.
-- 입력: `data/raw/<key>.json` — `{ id, sourceId, title, source, provider, link, published, paragraphs }` (깨끗한 원문 문단 배열). `id` 가 곧 key.
+- 입력: `data/raw/<key>.json` — `{ id, sourceId, title, source, provider, link, published, paragraphs, comments }`. `paragraphs` 는 원문 문단 배열, `comments` 는 독자 댓글 본문 배열(없을 수 있음). `id` 가 곧 key.
 - 출력: `data/narrated/<key>.json` — `{ id, sourceId, title, source, provider, link, published, script }` (재작성한 낭독 대본)
 - **보정 여부는 파일 존재로 판단한다**: `data/narrated/<key>.json` 이 이미 있으면 그 글은 **건너뛴다** (사용자가 "전부 다시"라고 하면 예외로 덮어쓴다)
 - `data/seen.json` 은 collect.mjs 가 관리하는 수집 장부다. **스킬은 건드리지 않는다.**
@@ -43,6 +43,15 @@ description: src/articles.json 의 수집된 긱뉴스 글을 "운전 중 들어
 **(다) 마무리** — 글 끝에 항상:
 - **핵심 재요약**: `"이 글의 핵심을 다시 정리하면, ○○입니다."`
   → 놓친 사람도 마지막에 요점을 한 번 더 잡게 한다.
+
+**(라) 댓글 반응** — `comments` 가 있고 내용이 유의미할 때만, 마무리 뒤에 덧붙인다:
+- 시작: `"끝으로, 이 글에 대한 댓글 반응입니다."`
+- 독자들의 **찬반과 주요 의견**을 요약한다. 대립이 있으면 양쪽을 다 전한다.
+  예: `"○○라며 공감하는 의견이 있는 반면, △△라는 반론도 있었습니다. 그밖에 □□라는 지적도 눈에 띕니다."`
+- 규칙:
+  - 단순 감탄사·이모지·인사("ㅋㅋ", "굿" 등)뿐이거나 댓글이 없으면 이 섹션은 **생략**한다.
+  - 실제 댓글에 있는 내용만 전한다(없는 주장 지어내지 않기). 특정 개인을 비방하는 표현은 중립적으로 순화한다.
+  - 2~5문장 정도로 간결하게. 댓글이 많으면 대표적인 관점 위주로 압축한다.
 
 ### 2. 문체
 
