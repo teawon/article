@@ -63,6 +63,14 @@ export default function App() {
     setNavIds(visible.map((a) => a.id))
     open(id)
   }
+  // 다음 글로 넘어가면서 바로 재생까지 시작 (연속 청취용)
+  const openAndPlay = (id: string) => {
+    const a = articles.find((x) => x.id === id)
+    if (!a) return
+    prefs.markRead(id)
+    setSelectedId(id)
+    narrator.play(a)
+  }
 
   if (!supported) {
     return (
@@ -94,6 +102,11 @@ export default function App() {
         onPrevArticle={navIdx > 0 ? () => goTo(navIds[navIdx - 1]) : undefined}
         onNextArticle={
           navIdx >= 0 && navIdx < navIds.length - 1 ? () => goTo(navIds[navIdx + 1]) : undefined
+        }
+        onAdvance={
+          navIdx >= 0 && navIdx < navIds.length - 1
+            ? () => openAndPlay(navIds[navIdx + 1])
+            : undefined
         }
       />
     )

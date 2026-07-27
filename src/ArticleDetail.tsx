@@ -11,6 +11,8 @@ interface Props {
   onBack: () => void
   onPrevArticle?: () => void
   onNextArticle?: () => void
+  /** 다음 글로 넘어가며 자동 재생 (연속 청취). 없으면 마지막 글 */
+  onAdvance?: () => void
 }
 
 export default function ArticleDetail({
@@ -21,6 +23,7 @@ export default function ArticleDetail({
   onBack,
   onPrevArticle,
   onNextArticle,
+  onAdvance,
 }: Props) {
   const sentences = useMemo(() => splitIntoChunks(article.script), [article.script])
   const isCurrent = narrator.articleId === article.id
@@ -54,15 +57,15 @@ export default function ArticleDetail({
 
   const showOverlay = finished && !dismissed
   useEffect(() => {
-    if (!showOverlay || !onNextArticle) return
+    if (!showOverlay || !onAdvance) return
     setCountdown(AUTO_SECONDS)
     const iv = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000)
-    const to = setTimeout(() => onNextArticle(), AUTO_SECONDS * 1000)
+    const to = setTimeout(() => onAdvance(), AUTO_SECONDS * 1000)
     return () => {
       clearInterval(iv)
       clearTimeout(to)
     }
-  }, [showOverlay, onNextArticle, article.id])
+  }, [showOverlay, onAdvance, article.id])
 
   return (
     <main className="wrap detail">
@@ -162,11 +165,11 @@ export default function ArticleDetail({
         <div className="overlay" role="dialog" aria-label="낭독 완료">
           <div className="overlay-card">
             <p className="overlay-done">✓ 낭독 완료</p>
-            {onNextArticle ? (
+            {onAdvance ? (
               <>
-                <button className="overlay-next" onClick={onNextArticle}>
-                  다음 글로 넘어가기
-                  <span className="overlay-count">{countdown}초 후 자동 이동</span>
+                <button className="overlay-next" onClick={onAdvance}>
+                  다음 글 듣기
+                  <span className="overlay-count">{countdown}초 후 자동 재생</span>
                 </button>
                 <button className="overlay-stay" onClick={() => setDismissed(true)}>
                   이 글에 머무르기
