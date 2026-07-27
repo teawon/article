@@ -285,6 +285,20 @@ select {
 .detail-title { font-size: 1.35rem; line-height: 1.4; margin: 0 0 8px; }
 .progress { color: var(--muted); font-size: 0.8rem; margin: 12px 0 0; }
 
+.origin {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.origin:hover { border-color: var(--accent); }
+
 /* 하단 고정바에 가리지 않도록 여백 확보 */
 .wrap.detail { padding-bottom: 96px; }
 

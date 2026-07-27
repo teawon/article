@@ -88,11 +88,12 @@ export default function ArticleDetail({
 
       <h1 className="detail-title">{article.title}</h1>
       <div className="submeta">
-        <a href={article.link} target="_blank" rel="noreferrer" className="src">
-          {article.source}
-        </a>
+        <span className="src">{article.source}</span>
         {article.published && <span className="date">{formatDate(article.published)}</span>}
       </div>
+      <a className="origin" href={article.link} target="_blank" rel="noreferrer">
+        긱뉴스에서 원문·댓글 보기 ↗
+      </a>
 
       {isCurrent && narrator.total > 0 && (
         <p className="progress">
