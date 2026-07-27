@@ -285,6 +285,28 @@ select {
 .detail-title { font-size: 1.35rem; line-height: 1.4; margin: 0 0 8px; }
 .progress { color: var(--muted); font-size: 0.8rem; margin: 12px 0 0; }
 
+.fallback-note {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  color: #f59e0b;
+}
+
+/* 재생 진행바 */
+.seekrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+.seekbar { flex: 1; accent-color: var(--accent); }
+.time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-width: 38px;
+  text-align: center;
+}
+
 .origin {
   display: inline-block;
   margin-top: 12px;

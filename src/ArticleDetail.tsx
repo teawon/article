@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Article } from './articles'
-import type { Narrator } from './useNarrator'
+import type { AudioNarrator } from './useAudioNarrator'
 import { formatDate, splitIntoChunks } from './utils'
 
 interface Props {
   article: Article
-  narrator: Narrator
+  narrator: AudioNarrator
   liked: boolean
   onToggleLike: () => void
   onBack: () => void
   onPrevArticle?: () => void
   onNextArticle?: () => void
-  /** 다음 글로 넘어가며 자동 재생 (연속 청취). 없으면 마지막 글 */
   onAdvance?: () => void
+}
+
+function fmt(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00'
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 export default function ArticleDetail({
@@ -25,25 +31,18 @@ export default function ArticleDetail({
   onNextArticle,
   onAdvance,
 }: Props) {
-  const sentences = useMemo(() => splitIntoChunks(article.script), [article.script])
+  const paragraphs = useMemo(() => splitIntoChunks(article.script), [article.script])
   const isCurrent = narrator.articleId === article.id
-  const activeIdx = isCurrent ? narrator.index : -1
-  const highlightRef = useRef<HTMLParagraphElement | null>(null)
 
-  // 다른 글로 넘어가면 스크롤을 맨 위로
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [article.id])
 
-  useEffect(() => {
-    highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [activeIdx])
-
   const onMain = () => {
-    if (!isCurrent || !narrator.active) narrator.play(article)
+    if (!isCurrent || (!narrator.active && !narrator.loading)) narrator.play(article)
     else narrator.toggle()
   }
-  const mainIcon = !isCurrent || !narrator.active ? '▶' : narrator.paused ? '▶' : '⏸'
+  const mainIcon = narrator.loading && isCurrent ? '…' : isCurrent && narrator.active && !narrator.paused ? '⏸' : '▶'
 
   // 낭독 완료 → 오버레이 + 자동 넘김
   const AUTO_SECONDS = 5
@@ -51,9 +50,7 @@ export default function ArticleDetail({
   const [dismissed, setDismissed] = useState(false)
   const [countdown, setCountdown] = useState(AUTO_SECONDS)
 
-  useEffect(() => {
-    setDismissed(false) // 새 글로 넘어오면 오버레이 상태 초기화
-  }, [article.id])
+  useEffect(() => setDismissed(false), [article.id])
 
   const showOverlay = finished && !dismissed
   useEffect(() => {
@@ -67,6 +64,9 @@ export default function ArticleDetail({
     }
   }, [showOverlay, onAdvance, article.id])
 
+  const cur = isCurrent ? narrator.currentTime : 0
+  const dur = isCurrent ? narrator.duration : 0
+
   return (
     <main className="wrap detail">
       <header className="detailbar">
@@ -78,7 +78,6 @@ export default function ArticleDetail({
             className={liked ? 'iconbtn liked' : 'iconbtn'}
             onClick={onToggleLike}
             aria-label={liked ? '좋아요 취소' : '좋아요'}
-            title={liked ? '좋아요 취소' : '좋아요'}
           >
             {liked ? '♥' : '♡'}
           </button>
@@ -95,27 +94,38 @@ export default function ArticleDetail({
         긱뉴스에서 원문·댓글 보기 ↗
       </a>
 
-      {isCurrent && narrator.total > 0 && (
-        <p className="progress">
-          {narrator.index + 1} / {narrator.total} 문장
-        </p>
+      {isCurrent && narrator.fallback && (
+        <p className="fallback-note">서버 음성을 못 불러와 기기 음성(유나)으로 재생 중이에요.</p>
       )}
 
-      {/* 전체 텍스트 + 현재 문장 하이라이트 */}
+      {/* 진행바 */}
+      {isCurrent && !narrator.fallback && (
+        <div className="seekrow">
+          <span className="time">{fmt(cur)}</span>
+          <input
+            type="range"
+            className="seekbar"
+            min={0}
+            max={dur || 0}
+            step={0.1}
+            value={cur}
+            onChange={(e) => narrator.seekTo(Number(e.target.value))}
+            disabled={!dur}
+          />
+          <span className="time">{fmt(dur)}</span>
+        </div>
+      )}
+
+      {/* 전체 텍스트 (읽기용) */}
       <article className="fulltext">
-        {sentences.map((s, i) => (
-          <p
-            key={i}
-            ref={i === activeIdx ? highlightRef : null}
-            className={i === activeIdx ? 'sentence reading' : 'sentence'}
-            onClick={() => narrator.play(article, i)}
-          >
+        {paragraphs.map((s, i) => (
+          <p key={i} className="sentence">
             {s}
           </p>
         ))}
       </article>
 
-      {/* 이전/다음 아티클 (전체 목록 순서) */}
+      {/* 이전/다음 아티클 */}
       <nav className="articlenav">
         <button onClick={onPrevArticle} disabled={!onPrevArticle}>
           ← 이전 글
@@ -130,22 +140,22 @@ export default function ArticleDetail({
         <div className="playbar-inner">
           <button
             className="pb"
-            onClick={() => narrator.prev()}
-            disabled={!isCurrent}
-            aria-label="이전 문장"
+            onClick={() => narrator.seek(-10)}
+            disabled={!isCurrent || narrator.fallback}
+            aria-label="10초 뒤로"
           >
-            ⏮
+            ⏪
           </button>
           <button className="pb main" onClick={onMain} aria-label="재생/일시정지">
             {mainIcon}
           </button>
           <button
             className="pb"
-            onClick={() => narrator.next()}
-            disabled={!isCurrent}
-            aria-label="다음 문장"
+            onClick={() => narrator.seek(10)}
+            disabled={!isCurrent || narrator.fallback}
+            aria-label="10초 앞으로"
           >
-            ⏭
+            ⏩
           </button>
           <button
             className="pb"
