@@ -130,6 +130,32 @@ select {
 }
 .sf.active { color: var(--text); border-color: var(--accent); background: var(--card); }
 
+/* 검색 */
+.searchbox { position: relative; margin-bottom: 16px; }
+.searchbox input {
+  width: 100%;
+  padding: 11px 36px 11px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.searchbox input:focus { outline: none; border-color: var(--accent); }
+.search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.search-count { color: var(--muted); font-size: 0.85rem; margin: -4px 0 14px; }
+
 /* 태그 필터 */
 .tagfilter {
   display: flex;
