@@ -222,6 +222,17 @@ export default function ArticleDetail({
         </div>
       </div>
 
+      {/* 음성 준비 중 로딩 오버레이 */}
+      {isCurrent && narrator.loading && (
+        <div className="overlay" role="alert" aria-label="음성 준비 중">
+          <div className="overlay-card loading-card">
+            <div className="spinner" />
+            <p className="loading-text">음성 준비 중…</p>
+            <p className="loading-sub">잠깐만요, 자연스러운 음성을 만드는 중이에요</p>
+          </div>
+        </div>
+      )}
+
       {/* 낭독 완료 오버레이 */}
       {showOverlay && (
         <div className="overlay" role="dialog" aria-label="낭독 완료">
