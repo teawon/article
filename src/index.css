@@ -130,6 +130,37 @@ select {
 }
 .sf.active { color: var(--text); border-color: var(--accent); background: var(--card); }
 
+/* 태그 필터 */
+.tagfilter {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: -6px 0 16px;
+  padding-bottom: 4px;
+}
+.tf {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tf.active { color: #041008; background: var(--accent); border-color: var(--accent); }
+
+/* 태그 뱃지 */
+.badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.badge-tag {
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+
 /* 카드 목록 */
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 

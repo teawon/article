@@ -8,6 +8,8 @@ export interface Article {
   link: string
   /** 원본 게시일 (ISO 8601) */
   published?: string
+  /** 주제 태그 (AI, 프론트엔드, 도구 등). article-narration 스킬이 분류. */
+  tags?: string[]
   /** 낭독 대본. article-narration 스킬이 운전용으로 재작성. */
   script: string
 }

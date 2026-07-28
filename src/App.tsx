@@ -7,6 +7,8 @@ import ArticleDetail from './ArticleDetail'
 
 type StatusFilter = '전체' | '안읽음' | '좋아요'
 
+const TAG_ORDER = ['AI', '프론트엔드', '백엔드·인프라', '도구', '디자인', '제품·비즈니스', '커리어']
+
 const VOICES = [
   { id: 'ko-KR-SunHiNeural', name: '선희 (여성)' },
   { id: 'ko-KR-InJoonNeural', name: '인준 (남성)' },
@@ -19,8 +21,14 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tab, setTab] = useState('전체')
   const [status, setStatus] = useState<StatusFilter>('안읽음')
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [navIds, setNavIds] = useState<string[]>([])
+
+  const allTags = useMemo(
+    () => TAG_ORDER.filter((t) => articles.some((a) => a.tags?.includes(t))),
+    [],
+  )
 
   const narrator = useAudioNarrator(voice, rate)
   const prefs = usePrefs()
@@ -35,9 +43,10 @@ export default function App() {
       if (tab !== '전체' && a.provider !== tab) return false
       if (status === '안읽음' && prefs.read.has(a.id)) return false
       if (status === '좋아요' && !prefs.liked.has(a.id)) return false
+      if (tagFilter && !(a.tags ?? []).includes(tagFilter)) return false
       return true
     })
-  }, [tab, status, prefs.read, prefs.liked])
+  }, [tab, status, tagFilter, prefs.read, prefs.liked])
 
   const open = (id: string) => {
     prefs.markRead(id)
@@ -141,6 +150,21 @@ export default function App() {
         ))}
       </nav>
 
+      <nav className="tagfilter">
+        <button className={!tagFilter ? 'tf active' : 'tf'} onClick={() => setTagFilter(null)}>
+          전체
+        </button>
+        {allTags.map((t) => (
+          <button
+            key={t}
+            className={tagFilter === t ? 'tf active' : 'tf'}
+            onClick={() => setTagFilter((cur) => (cur === t ? null : t))}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
+
       <ul className="list">
         {visible.map((a) => {
           const playing = narrator.articleId === a.id && narrator.active
@@ -169,6 +193,15 @@ export default function App() {
                   <span className="src">{a.source}</span>
                   {a.published && <span className="date">{formatDate(a.published)}</span>}
                 </div>
+                {!!a.tags?.length && (
+                  <div className="badges">
+                    {a.tags.map((t) => (
+                      <span key={t} className="badge-tag">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="cardactions" onClick={(e) => e.stopPropagation()}>
                 <button

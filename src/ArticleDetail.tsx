@@ -129,6 +129,15 @@ export default function ArticleDetail({
         <span className="src">{article.source}</span>
         {article.published && <span className="date">{formatDate(article.published)}</span>}
       </div>
+      {!!article.tags?.length && (
+        <div className="badges">
+          {article.tags.map((t) => (
+            <span key={t} className="badge-tag">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
       <a className="origin" href={article.link} target="_blank" rel="noreferrer">
         긱뉴스에서 원문·댓글 보기 ↗
       </a>
