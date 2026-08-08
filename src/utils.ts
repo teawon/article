@@ -6,6 +6,27 @@ export function splitIntoChunks(text: string): string[] {
     .filter(Boolean)
 }
 
+/**
+ * 문장들을 최대 글자 수 이하 그룹으로 묶는다.
+ * 서버리스 TTS(1회 응답 4.5MB·60초 한계)를 넘지 않도록, 한 요청이
+ * 너무 긴 오디오를 만들지 않게 나누는 용도. 한 문장이 상한을 넘으면
+ * 그 문장은 단독 그룹이 된다.
+ */
+export function groupByChars(text: string, maxChars = 2800): string[] {
+  const groups: string[] = []
+  let cur = ''
+  for (const s of splitIntoChunks(text)) {
+    if (cur && cur.length + 1 + s.length > maxChars) {
+      groups.push(cur)
+      cur = s
+    } else {
+      cur = cur ? `${cur} ${s}` : s
+    }
+  }
+  if (cur) groups.push(cur)
+  return groups
+}
+
 /** ISO 날짜 → "2026.07.25" */
 export function formatDate(iso?: string): string {
   if (!iso) return ''

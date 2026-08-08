@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Article } from './articles'
-import { splitIntoChunks } from './utils'
+import { groupByChars, splitIntoChunks } from './utils'
 
 export interface WordMark {
   t: number // 초 단위 시작 시각
@@ -30,11 +30,57 @@ interface CacheEntry {
   boundaries: WordMark[]
 }
 
-function base64ToBlob(b64: string, type: string): Blob {
+function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64)
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return new Blob([bytes], { type })
+  return bytes
+}
+
+// EdgeTTS 출력은 audio-24khz-48kbitrate-mono-mp3 (CBR 48kbps = 6000 B/s).
+// 조각별 오디오 길이를 바이트 수로 근사해 단어 타이밍 오프셋을 누적한다.
+const TTS_BYTES_PER_SEC = 48000 / 8
+
+interface TtsResult {
+  audio: string
+  boundaries?: WordMark[]
+}
+
+/**
+ * 긴 대본을 문장 그룹으로 나눠 여러 번 /api/tts 호출한 뒤,
+ * mp3 바이트를 이어 붙여 하나의 재생본으로 만든다. 각 그룹의 단어
+ * 타이밍은 앞선 그룹들의 재생 길이만큼 밀어서 합친다.
+ * (서버리스 1회 응답 4.5MB·60초 한계 회피)
+ */
+async function fetchNarration(script: string, voice: string): Promise<CacheEntry> {
+  const groups = groupByChars(script)
+  const results = await Promise.all(
+    groups.map(async (text): Promise<TtsResult> => {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice }),
+      })
+      if (!res.ok) throw new Error('tts ' + res.status)
+      const data = await res.json()
+      if (!data?.audio) throw new Error('no audio')
+      return data as TtsResult
+    }),
+  )
+
+  const parts: Uint8Array[] = []
+  const boundaries: WordMark[] = []
+  let offset = 0
+  for (const data of results) {
+    const bytes = base64ToBytes(data.audio)
+    for (const w of Array.isArray(data.boundaries) ? data.boundaries : []) {
+      boundaries.push({ t: w.t + offset, text: w.text })
+    }
+    parts.push(bytes)
+    offset += bytes.length / TTS_BYTES_PER_SEC
+  }
+  const url = URL.createObjectURL(new Blob(parts as unknown as BlobPart[], { type: 'audio/mpeg' }))
+  return { url, boundaries }
 }
 
 /**
@@ -138,16 +184,7 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
       if (!entry) {
         setLoading(true)
         try {
-          const res = await fetch('/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: a.script, voice }),
-          })
-          if (!res.ok) throw new Error('tts ' + res.status)
-          const data = await res.json()
-          if (!data?.audio) throw new Error('no audio')
-          const url = URL.createObjectURL(base64ToBlob(data.audio, 'audio/mpeg'))
-          entry = { url, boundaries: Array.isArray(data.boundaries) ? data.boundaries : [] }
+          entry = await fetchNarration(a.script, voice)
           cacheRef.current.set(key, entry)
         } catch {
           if (my !== reqToken.current) return
