@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { articles } from './articles'
 import { useAudioNarrator } from './useAudioNarrator'
 import { usePrefs } from './usePrefs'
-import { formatDate } from './utils'
+import { formatDate, estimateNarrationSec, formatEstimate } from './utils'
 import ArticleDetail from './ArticleDetail'
 
 type StatusFilter = '전체' | '안읽음' | '좋아요'
@@ -233,6 +233,9 @@ export default function App() {
                 <div className="submeta">
                   <span className="src">{a.source}</span>
                   {a.published && <span className="date">{formatDate(a.published)}</span>}
+                  <span className="est" title="낭독 예상 시간">
+                    🎧 {formatEstimate(estimateNarrationSec(a.script))}
+                  </span>
                 </div>
                 {!!a.tags?.length && (
                   <div className="badges">
