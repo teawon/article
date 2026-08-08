@@ -27,6 +27,19 @@ export function groupByChars(text: string, maxChars = 2800): string[] {
   return groups
 }
 
+/**
+ * 대본 글자수로 낭독 예상 시간(초)을 추정한다.
+ * EdgeTTS(ko, 48kbps) 실측 기준 대략 초당 8자.
+ */
+export function estimateNarrationSec(script: string): number {
+  return Math.round((script?.length || 0) / 8)
+}
+
+/** 예상 시간(초) → "약 6분" / "약 1분" (목록·상세 표시용) */
+export function formatEstimate(sec: number): string {
+  return `약 ${Math.max(1, Math.round(sec / 60))}분`
+}
+
 /** ISO 날짜 → "2026.07.25" */
 export function formatDate(iso?: string): string {
   if (!iso) return ''

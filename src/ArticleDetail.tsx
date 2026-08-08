@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Article } from './articles'
 import type { AudioNarrator } from './useAudioNarrator'
-import { formatDate, splitIntoChunks } from './utils'
+import { estimateNarrationSec, formatDate, formatEstimate, splitIntoChunks } from './utils'
 
 const stripChars = (s: string) => s.replace(/[^0-9A-Za-z가-힣]/g, '')
 
@@ -34,6 +34,7 @@ export default function ArticleDetail({
   onAdvance,
 }: Props) {
   const paragraphs = useMemo(() => splitIntoChunks(article.script), [article.script])
+  const estLabel = useMemo(() => formatEstimate(estimateNarrationSec(article.script)), [article.script])
   const isCurrent = narrator.articleId === article.id
   const highlightRef = useRef<HTMLParagraphElement | null>(null)
 
@@ -128,6 +129,7 @@ export default function ArticleDetail({
       <div className="submeta">
         <span className="src">{article.source}</span>
         {article.published && <span className="date">{formatDate(article.published)}</span>}
+        <span className="est" title="낭독 예상 시간">🎧 {estLabel}</span>
       </div>
       {!!article.tags?.length && (
         <div className="badges">

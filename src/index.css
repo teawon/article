@@ -251,6 +251,7 @@ select {
 .submeta .date::before { content: '· '; }
 .submeta .src { color: var(--muted); text-decoration: none; }
 .submeta .src:hover { text-decoration: underline; }
+.submeta .est { margin-left: auto; white-space: nowrap; color: var(--muted); }
 
 .chevron {
   flex-shrink: 0;
