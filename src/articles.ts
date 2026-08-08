@@ -12,6 +12,8 @@ export interface Article {
   tags?: string[]
   /** 낭독 대본. article-narration 스킬이 운전용으로 재작성. */
   script: string
+  /** 요약 낭독 대본 (긴 글에만). 있으면 상세페이지에 '요약본' 탭이 뜬다. */
+  scriptShort?: string
 }
 
 // 데이터 파이프라인:

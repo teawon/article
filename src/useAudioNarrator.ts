@@ -18,7 +18,7 @@ export interface AudioNarrator {
   fallback: boolean
   /** 현재 글의 단어 타이밍 (없으면 빈 배열) */
   boundaries: WordMark[]
-  play: (a: Article) => void
+  play: (a: Article, short?: boolean) => void
   toggle: () => void
   stop: () => void
   seek: (delta: number) => void
@@ -138,14 +138,14 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
   }
 
   const speakFallback = useCallback(
-    (a: Article) => {
+    (a: Article, script: string) => {
       if (!('speechSynthesis' in window)) return
       setFallback(true)
       setBoundaries([])
       setActive(true)
       setPaused(false)
       const my = ++speechToken.current
-      const chunks = splitIntoChunks(a.script)
+      const chunks = splitIntoChunks(script)
       const step = (i: number) => {
         if (my !== speechToken.current) return
         if (i >= chunks.length) {
@@ -165,7 +165,7 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
   )
 
   const play = useCallback(
-    async (a: Article) => {
+    async (a: Article, short = false) => {
       const audio = audioRef.current
       if (!audio) return
       cancelSpeech()
@@ -179,17 +179,19 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
       setDuration(0)
       setBoundaries([])
 
-      const key = `${voice}:${a.id}`
+      const useShort = short && !!a.scriptShort
+      const script = useShort ? (a.scriptShort as string) : a.script
+      const key = `${voice}:${a.id}:${useShort ? 's' : 'f'}`
       let entry = cacheRef.current.get(key)
       if (!entry) {
         setLoading(true)
         try {
-          entry = await fetchNarration(a.script, voice)
+          entry = await fetchNarration(script, voice)
           cacheRef.current.set(key, entry)
         } catch {
           if (my !== reqToken.current) return
           setLoading(false)
-          speakFallback(a)
+          speakFallback(a, script)
           return
         }
         if (my !== reqToken.current) return

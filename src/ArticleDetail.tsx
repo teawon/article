@@ -33,10 +33,22 @@ export default function ArticleDetail({
   onNextArticle,
   onAdvance,
 }: Props) {
-  const paragraphs = useMemo(() => splitIntoChunks(article.script), [article.script])
-  const estLabel = useMemo(() => formatEstimate(estimateNarrationSec(article.script)), [article.script])
+  const hasShort = !!article.scriptShort
+  const [short, setShort] = useState(false)
+  useEffect(() => setShort(false), [article.id])
+
+  const activeScript = short && hasShort ? (article.scriptShort as string) : article.script
+  const paragraphs = useMemo(() => splitIntoChunks(activeScript), [activeScript])
+  const estLabel = useMemo(() => formatEstimate(estimateNarrationSec(activeScript)), [activeScript])
   const isCurrent = narrator.articleId === article.id
   const highlightRef = useRef<HTMLParagraphElement | null>(null)
+
+  // 전체본/요약본 전환. 재생·로딩 중이면 그 버전으로 다시 재생.
+  const switchVersion = (v: boolean) => {
+    if (v === short) return
+    setShort(v)
+    if (isCurrent && (narrator.active || narrator.loading)) narrator.play(article, v)
+  }
 
   // 단어 타이밍 → 문장별 시작 시각 (초)
   const sentenceStarts = useMemo(() => {
@@ -79,7 +91,7 @@ export default function ArticleDetail({
   }, [activeIdx])
 
   const onMain = () => {
-    if (!isCurrent || (!narrator.active && !narrator.loading)) narrator.play(article)
+    if (!isCurrent || (!narrator.active && !narrator.loading)) narrator.play(article, short)
     else narrator.toggle()
   }
   const mainIcon = narrator.loading && isCurrent ? '…' : isCurrent && narrator.active && !narrator.paused ? '⏸' : '▶'
@@ -144,6 +156,27 @@ export default function ArticleDetail({
         긱뉴스에서 원문·댓글 보기 ↗
       </a>
 
+      {hasShort && (
+        <div className="verstabs" role="tablist" aria-label="낭독 버전">
+          <button
+            role="tab"
+            aria-selected={!short}
+            className={short ? 'verstab' : 'verstab on'}
+            onClick={() => switchVersion(false)}
+          >
+            전체본 · {formatEstimate(estimateNarrationSec(article.script))}
+          </button>
+          <button
+            role="tab"
+            aria-selected={short}
+            className={short ? 'verstab on' : 'verstab'}
+            onClick={() => switchVersion(true)}
+          >
+            요약본 · {formatEstimate(estimateNarrationSec(article.scriptShort as string))}
+          </button>
+        </div>
+      )}
+
       {isCurrent && narrator.fallback && (
         <p className="fallback-note">서버 음성을 못 불러와 기기 음성(유나)으로 재생 중이에요.</p>
       )}
@@ -178,7 +211,7 @@ export default function ArticleDetail({
               className={i === activeIdx ? 'sentence reading' : 'sentence'}
               onClick={() => {
                 if (clickable) narrator.seekTo(start)
-                else narrator.play(article)
+                else narrator.play(article, short)
               }}
             >
               {s}

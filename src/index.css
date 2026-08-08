@@ -187,6 +187,25 @@ select {
   padding: 1px 7px;
 }
 
+/* 전체본/요약본 탭 */
+.verstabs { display: flex; gap: 6px; margin: 12px 0 4px; }
+.verstab {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.verstab.on {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  font-weight: 600;
+}
+
 /* 카드 목록 */
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 
