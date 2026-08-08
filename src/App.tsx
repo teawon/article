@@ -31,8 +31,8 @@ export default function App() {
     [],
   )
 
-  const narrator = useAudioNarrator(voice, rate)
   const prefs = usePrefs()
+  const narrator = useAudioNarrator(voice, rate, prefs.browserTts)
 
   const tabs = useMemo(() => {
     const providers = Array.from(new Set(articles.map((a) => a.provider)))
@@ -142,6 +142,20 @@ export default function App() {
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
             />
+          </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={prefs.browserTts}
+              onChange={(e) => {
+                narrator.stop()
+                prefs.setBrowserTts(e.target.checked)
+              }}
+            />
+            <span>
+              기기 음성으로 재생
+              <small>음질은 낮지만 다운로드 없이 바로 들려요. 위 음성·속도 설정은 무시돼요.</small>
+            </span>
           </label>
         </section>
       )}

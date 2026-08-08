@@ -79,6 +79,24 @@ body {
   flex: 1;
   min-width: 160px;
 }
+.settings label.toggle {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  flex-basis: 100%;
+  color: var(--text);
+  cursor: pointer;
+}
+.settings label.toggle input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  flex: none;
+  accent-color: var(--accent, #4c8bf5);
+  cursor: pointer;
+}
+.settings label.toggle span { display: flex; flex-direction: column; gap: 2px; }
+.settings label.toggle small { color: var(--muted); font-size: 0.78rem; }
 select, input[type='range'] { width: 100%; }
 select {
   padding: 8px;

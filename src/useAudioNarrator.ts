@@ -88,7 +88,7 @@ async function fetchNarration(script: string, voice: string): Promise<CacheEntry
  * 단어 타이밍(boundaries)도 함께 받아 문장 하이라이트에 사용.
  * 실패(로컬 dev 등)하면 기기 음성(Web Speech)로 자동 대체.
  */
-export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
+export function useAudioNarrator(voice: string, rate: number, forceBrowserTts = false): AudioNarrator {
   const [articleId, setArticleId] = useState<string | null>(null)
   const [active, setActive] = useState(false)
   const [paused, setPaused] = useState(false)
@@ -181,6 +181,13 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
 
       const useShort = short && !!a.scriptShort
       const script = useShort ? (a.scriptShort as string) : a.script
+
+      // 옵션이 켜져 있으면 서버 음성을 받지 않고 곧바로 기기 음성으로 재생
+      if (forceBrowserTts) {
+        speakFallback(a, script)
+        return
+      }
+
       const key = `${voice}:${a.id}:${useShort ? 's' : 'f'}`
       let entry = cacheRef.current.get(key)
       if (!entry) {
@@ -208,7 +215,7 @@ export function useAudioNarrator(voice: string, rate: number): AudioNarrator {
         /* 자동재생 차단 시 무시 */
       }
     },
-    [voice, rate, speakFallback],
+    [voice, rate, speakFallback, forceBrowserTts],
   )
 
   const toggle = useCallback(() => {
